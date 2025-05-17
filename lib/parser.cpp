@@ -11,6 +11,7 @@
 
 static const std::unordered_map<std::string, TokenType> reserved_words = {
     {".exit", META_COMMAND_EXIT},
+    {".tables", META_COMMAND_TABLES},
     {"CREATE", KEYWORD_CREATE},
     {"INSERT", KEYWORD_INSERT},
     {"INTO", KEYWORD_INTO},
@@ -75,6 +76,146 @@ bool is_string(const std::string &p_symbol)
     return p_symbol.front() == '"' && p_symbol.back() == '"';
 }
 
+static TokenType peek(std::vector<Token> &p_tokens)
+{
+    if (p_tokens.empty())
+    {
+        throw std::runtime_error("Unexpected end of input");
+    }
+
+    return p_tokens.front().type;
+}
+
+static void check_or(std::vector<Token> &p_tokens, TokenType p_token_type, const std::string &p_error_message)
+{
+    if (p_tokens.empty())
+    {
+        throw std::runtime_error("Unexpected end of input");
+    }
+
+    auto token = p_tokens.front();
+    if (token.type != p_token_type)
+    {
+        throw std::runtime_error(p_error_message);
+    }
+}
+
+static void advance(std::vector<Token> &p_tokens)
+{
+    if (p_tokens.empty())
+    {
+        throw std::runtime_error("Unexpected end of input");
+    }
+
+    p_tokens.erase(p_tokens.begin());
+}
+
+static Token consume_or(std::vector<Token> &p_tokens, TokenType p_token_type, const std::string &p_error_msg)
+{
+   check_or(p_tokens, p_token_type, p_error_msg);
+   auto token = p_tokens.front();
+   advance(p_tokens);
+
+   return token;
+}
+
+template<typename T>
+static std::vector<T> get_parenthesized_list(std::vector<Token> &p_tokens, TokenType p_expected_type)
+{
+    consume_or(p_tokens, TokenType::LEFT_PAREN, "Expected '('");
+
+    auto list = std::vector<T>();
+    while (!p_tokens.empty())
+    {
+        auto token = consume_or(p_tokens, p_expected_type, "Expected type mismatch");
+        list.push_back(std::get<T>(token.value));
+
+        if (p_tokens.front().type == TokenType::RIGHT_PAREN)
+        {
+            break;
+        }
+
+        consume_or(p_tokens, TokenType::COMMA, "Expected ',' after list element");
+    }
+
+    consume_or(p_tokens, TokenType::RIGHT_PAREN, "Expected ')' after list");
+
+    return list;
+}
+
+static std::vector<Token> get_parenthesized_token_list(std::vector<Token> &p_tokens)
+{
+    consume_or(p_tokens, TokenType::LEFT_PAREN, "Expected '('");
+
+    auto list = std::vector<Token>();
+    while (!p_tokens.empty())
+    {
+        list.push_back(p_tokens.front());
+        advance(p_tokens);
+
+        if (p_tokens.front().type == TokenType::RIGHT_PAREN)
+        {
+            break;
+        }
+
+        consume_or(p_tokens, TokenType::COMMA, "Expected ',' after list element");
+    }
+
+    consume_or(p_tokens, TokenType::RIGHT_PAREN, "Expected ')' after list");
+
+    return list;
+}
+
+static void handle_create(std::vector<Token> &p_tokens)
+{
+    consume_or(p_tokens, TokenType::KEYWORD_TABLE, "Expected 'TABLE' keyword after 'CREATE'");
+
+    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, "Expected table name");
+    auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
+
+    TableManager::add_table(std::get<std::string>(table_name.value), columns);
+}
+
+static void handle_insert(std::vector<Token> &p_tokens)
+{
+    consume_or(p_tokens, TokenType::KEYWORD_INTO, "Expected 'INTO' keyword");
+
+    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, "Expected table name");
+
+    auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
+
+    consume_or(p_tokens, TokenType::KEYWORD_VALUES, "Expected 'VALUES' keyword");
+
+    auto rows = get_parenthesized_token_list(p_tokens);
+
+    auto &table = TableManager::find(std::get<std::string>(table_name.value));
+    table.insert(columns, rows);
+}
+
+static void handle_select(std::vector<Token> &p_tokens)
+{
+    auto next_token = peek(p_tokens);
+    if (next_token == TokenType::WILDCARD)
+    {
+        advance(p_tokens);
+    }
+    else if (next_token == TokenType::LEFT_PAREN)
+    {
+        auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
+    }
+    else
+    {
+        throw std::runtime_error("Expected '*' or  parenthesized list after table name");
+    }
+
+    consume_or(p_tokens, TokenType::KEYWORD_FROM, "Expected 'FROM' keyword");
+
+    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, "Expected table name");
+
+    auto table = TableManager::find(std::get<std::string>(table_name.value));
+    table.select_all();
+}
+
 std::vector<Token> Parser::tokenize(const std::vector<std::string> &p_input)
 {
     std::vector<Token> tokens;
@@ -95,203 +236,52 @@ std::vector<Token> Parser::tokenize(const std::vector<std::string> &p_input)
             throw std::runtime_error("Empty symbol found: parsing error");
         }
 
-        if (symbol == "(")
+        const std::map<std::string_view, TokenType> token_map = {
+            {"(", TokenType::LEFT_PAREN},
+            {")", TokenType::RIGHT_PAREN},
+            {",", TokenType::COMMA},
+            {";", TokenType::SEMICOLON},
+            {"=", TokenType::EQUAL},
+            {"!=", TokenType::NOT_EQUAL},
+            {"*", TokenType::WILDCARD},
+        };
+
+        if (token_map.contains(symbol))
         {
-            token_class = TokenType::LEFT_PAREN;
-        }
-        else if (symbol == ")")
-        {
-            token_class = TokenType::RIGHT_PAREN;
-        }
-        else if (symbol == ",")
-        {
-            token_class = TokenType::COMMA;
-        }
-        else if (symbol == ";")
-        {
-            token_class = TokenType::SEMICOLON;
-        }
-        else if (symbol == "=")
-        {
-            token_class = TokenType::EQUAL;
-        }
-        else if (symbol == "!=")
-        {
-            token_class = TokenType::NOT_EQUAL;
-        }
-        else if (symbol == "*")
-        {
-            token_class = TokenType::WILDCARD;
-        }
-        else if (is_reserved(symbol))
-        {
-            token_class = reserved_words.at(symbol);
-        }
-        else if (is_integer(symbol))
-        {
-            token_class = TokenType::LITERAL_INTEGER;
-            token_value = std::stoi(symbol);
-        }
-        else if (is_float(symbol))
-        {
-            token_class = TokenType::LITERAL_FLOAT;
-            token_value = std::stod(symbol);
-        }
-        else if (is_string(symbol))
-        {
-            token_class = TokenType::LITERAL_STRING;
-            token_value = symbol;
+            token_class = token_map.at(symbol);
         }
         else
         {
-            token_class = TokenType::IDENTIFIER;
-            token_value = symbol;
+            if (is_reserved(symbol))
+            {
+                token_class = reserved_words.at(symbol);
+            }
+            else if (is_integer(symbol))
+            {
+                token_class = TokenType::LITERAL_INTEGER;
+                token_value = std::stoi(symbol);
+            }
+            else if (is_float(symbol))
+            {
+                token_class = TokenType::LITERAL_FLOAT;
+                token_value = std::stod(symbol);
+            }
+            else if (is_string(symbol))
+            {
+                token_class = TokenType::LITERAL_STRING;
+                token_value = symbol;
+            }
+            else
+            {
+                token_class = TokenType::IDENTIFIER;
+                token_value = symbol;
+            }
         }
 
         tokens.emplace_back(token_class, token_value);
     }
 
     return tokens;
-}
-
-static TokenType peek(std::vector<Token> &p_tokens)
-{
-    if (p_tokens.empty())
-    {
-        throw std::runtime_error("Unexpected end of input");
-    }
-
-    return p_tokens.front().type;
-}
-
-static void check_or(std::vector<Token> &p_tokens, TokenType p_token_type, const std::exception &p_exception)
-{
-    if (p_tokens.empty())
-    {
-        throw std::runtime_error("Unexpected end of input");
-    }
-
-    auto token = p_tokens.front();
-    if (token.type != p_token_type)
-    {
-        throw p_exception;
-    }
-}
-
-static void advance(std::vector<Token> &p_tokens)
-{
-    if (p_tokens.empty())
-    {
-        throw std::runtime_error("Unexpected end of input");
-    }
-
-    p_tokens.erase(p_tokens.begin());
-}
-
-static Token consume_or(std::vector<Token> &p_tokens, TokenType p_token_type, const std::exception &p_exception)
-{
-   check_or(p_tokens, p_token_type, p_exception);
-   auto token = p_tokens.front();
-   advance(p_tokens);
-
-   return token;
-}
-
-template<typename T>
-static std::vector<T> get_parenthesized_list(std::vector<Token> &p_tokens, TokenType p_expected_type)
-{
-    consume_or(p_tokens, TokenType::LEFT_PAREN, std::runtime_error("Expected '('"));
-
-    auto list = std::vector<T>();
-    while (!p_tokens.empty())
-    {
-        auto token = consume_or(p_tokens, p_expected_type, std::runtime_error("Expected type mismatch"));
-        list.push_back(std::get<T>(token.value));
-
-        if (p_tokens.front().type == TokenType::RIGHT_PAREN)
-        {
-            break;
-        }
-
-        consume_or(p_tokens, TokenType::COMMA, std::runtime_error("Expected ',' after list element"));
-    }
-
-    consume_or(p_tokens, TokenType::RIGHT_PAREN, std::runtime_error("Expected ')' after list"));
-
-    return list;
-}
-
-static std::vector<Token> get_parenthesized_token_list(std::vector<Token> &p_tokens)
-{
-    consume_or(p_tokens, TokenType::LEFT_PAREN, std::runtime_error("Expected '('"));
-
-    auto list = std::vector<Token>();
-    while (!p_tokens.empty())
-    {
-        list.push_back(p_tokens.front());
-        advance(p_tokens);
-
-        if (p_tokens.front().type == TokenType::RIGHT_PAREN)
-        {
-            break;
-        }
-
-        consume_or(p_tokens, TokenType::COMMA, std::runtime_error("Expected ',' after list element"));
-    }
-
-    consume_or(p_tokens, TokenType::RIGHT_PAREN, std::runtime_error("Expected ')' after list"));
-
-    return list;
-}
-
-static void handle_create(std::vector<Token> &p_tokens)
-{
-    consume_or(p_tokens, TokenType::KEYWORD_TABLE, std::runtime_error("Expected 'TABLE' keyword"));
-
-    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, std::runtime_error("Expected table name"));
-    auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
-
-    TableManager::add_table(std::get<std::string>(table_name.value), columns);
-}
-
-static void handle_insert(std::vector<Token> &p_tokens)
-{
-    consume_or(p_tokens, TokenType::KEYWORD_INTO, std::runtime_error("Expected 'INTO' keyword"));
-
-    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, std::runtime_error("Expected table name"));
-
-    auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
-
-    consume_or(p_tokens, TokenType::KEYWORD_VALUES, std::runtime_error("Expected 'VALUES' keyword"));
-
-    auto rows = get_parenthesized_token_list(p_tokens);
-
-    auto &table = TableManager::find(std::get<std::string>(table_name.value));
-    table.insert(columns, rows);
-}
-
-static void handle_select(std::vector<Token> &p_tokens)
-{
-    auto next_token = peek(p_tokens);
-    if (next_token == TokenType::WILDCARD)
-    {
-        consume_or(p_tokens, TokenType::WILDCARD, std::runtime_error("Expected '*' wildcard"));
-    }
-    else if (next_token == TokenType::LEFT_PAREN)
-    {
-        auto columns = get_parenthesized_list<std::string>(p_tokens, TokenType::IDENTIFIER);
-    }
-    else
-    {
-        throw std::runtime_error("Expected '*' or  parenthesized list after table name");
-    }
-
-    consume_or(p_tokens, TokenType::KEYWORD_FROM, std::runtime_error("Expected 'FROM' keyword"));
-
-    auto table_name = consume_or(p_tokens, TokenType::IDENTIFIER, std::runtime_error("Expected table name"));
-
-    auto table = TableManager::find(std::get<std::string>(table_name.value));
-    table.select_all();
 }
 
 void Parser::evaluate(std::vector<Token> &p_tokens)
@@ -304,6 +294,7 @@ void Parser::evaluate(std::vector<Token> &p_tokens)
         switch (token.type)
         {
             case META_COMMAND_EXIT:
+            case META_COMMAND_TABLES:
                 MetaCommand::execute(token.type);
             break;
 
@@ -317,18 +308,6 @@ void Parser::evaluate(std::vector<Token> &p_tokens)
 
             case KEYWORD_SELECT:
                handle_select(p_tokens);
-            break;
-
-            case LITERAL_STRING:
-                // Handle string literal
-            break;
-
-            case LITERAL_INTEGER:
-                // Handle number literal
-            break;
-
-            case LITERAL_FLOAT:
-                // Handle float literal
             break;
 
             default:

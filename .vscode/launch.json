@@ -28,7 +28,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/my_sqlite",
-            "args": [],
+            "args": ["--no-prompt"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

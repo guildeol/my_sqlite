@@ -6,6 +6,7 @@
 enum TokenType
 {
     META_COMMAND_EXIT,
+    META_COMMAND_TABLES,
 
     KEYWORD_CREATE,
     KEYWORD_INSERT,
@@ -77,6 +78,7 @@ class Token
             switch (p_type)
             {
                 case META_COMMAND_EXIT: return "META_COMMAND_EXIT";
+                case META_COMMAND_TABLES: return "META_COMMAND_TABLES";
                 case KEYWORD_CREATE: return "KEYWORD_CREATE";
                 case KEYWORD_INSERT: return "KEYWORD_INSERT";
                 case KEYWORD_INTO: return "KEYWORD_INTO";

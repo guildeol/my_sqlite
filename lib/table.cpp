@@ -39,6 +39,14 @@ void Table::select_all()
     }
 }
 
+void TableManager::print_tables()
+{
+    for (const auto &[name, _] : table_map)
+    {
+        fmt::print("{}\n", name);
+    }
+}
+
 void TableManager::add_table(std::string p_name, std::vector<std::string> p_columns)
 {
     if (table_map.find(p_name) != table_map.end())

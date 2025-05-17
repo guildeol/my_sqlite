@@ -7,18 +7,34 @@
 #include "meta_command.h"
 #include "parser.h"
 
+static bool use_prompt = true;
+
 static void print_prompt()
 {
     fmt::print("db > ");
 }
 
-int main()
+static void process_arguments(int argc, char *argv[])
 {
+   for (auto i = 1; i < argc; i++)
+    {
+         if (std::string(argv[i]) == "--no-prompt")
+         {
+              use_prompt = false;
+         }
+    }
+}
+
+int main(int argc, char *argv[])
+{
+    process_arguments(argc, argv);
+
     auto input_buffer = InputBuffer();
 
     while (true)
     {
-        print_prompt();
+        if (use_prompt)
+            print_prompt();
 
         try
         {

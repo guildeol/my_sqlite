@@ -26,7 +26,7 @@ add_library(sqlite STATIC ${SOURCES})
 target_include_directories(sqlite PUBLIC "lib")
 target_link_libraries(sqlite PUBLIC fmt::fmt)
 
-add_subdirectory(tests)
+add_subdirectory(tests/unit)
 
 add_executable(my_sqlite "repl/main.cpp")
 target_link_libraries(my_sqlite PRIVATE sqlite)

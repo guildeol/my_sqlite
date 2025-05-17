@@ -26,6 +26,7 @@ class Table
 class TableManager
 {
     public:
+        static void print_tables();
         static void add_table(std::string p_name, std::vector<std::string> p_columns);
         static Table &find(std::string p_name);
 
