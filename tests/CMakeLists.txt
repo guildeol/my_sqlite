@@ -17,5 +17,5 @@ file(GLOB TEST_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/suites/*.cpp")
 add_executable(test_sqlite ${TEST_SOURCES})
 
 # Link GoogleTest libraries
-target_link_libraries(test_sqlite PRIVATE gtest_main libsqlite)
+target_link_libraries(test_sqlite PRIVATE gtest_main sqlite)
 target_compile_options(test_sqlite PRIVATE -Wall -Wextra -Wpedantic -Werror -g3)

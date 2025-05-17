@@ -40,7 +40,7 @@ TEST(ParserTest, ShouldTokenizeIntegerLiteral)
     auto tokens = Parser::tokenize({"12345"});
 
     EXPECT_EQ(tokens.size(), 1);
-    EXPECT_EQ(tokens[0].type, LITERAL_NUMBER);
+    EXPECT_EQ(tokens[0].type, LITERAL_INTEGER);
     EXPECT_EQ(std::get<int>(tokens[0].value), 12345);
 }
 

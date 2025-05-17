@@ -30,3 +30,6 @@ add_subdirectory(tests)
 
 add_executable(my_sqlite "repl/main.cpp")
 target_link_libraries(my_sqlite PRIVATE sqlite)
+
+target_compile_options(sqlite PRIVATE -Wall -Wextra -Wpedantic -Werror -g3)
+target_compile_options(my_sqlite PRIVATE -Wall -Wextra -Wpedantic -Werror -g3)

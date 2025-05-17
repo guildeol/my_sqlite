@@ -13,10 +13,11 @@ enum TokenType
     KEYWORD_FROM,
     KEYWORD_SELECT,
     KEYWORD_TABLE,
+    KEYWORD_VALUES,
     KEYWORD_WHERE,
 
     LITERAL_STRING,
-    LITERAL_NUMBER,
+    LITERAL_INTEGER,
     LITERAL_FLOAT,
 
     IDENTIFIER,
@@ -27,6 +28,7 @@ enum TokenType
     SEMICOLON,
     EQUAL,
     NOT_EQUAL,
+    WILDCARD,
 };
 
 using TokenValue = std::variant<std::nullptr_t, std::string, int, double>;
@@ -41,6 +43,28 @@ class Token
             : type(p_type), value(p_value)
         {
             // Empty
+        }
+
+        std::string print_value() const
+        {
+            if (std::holds_alternative<std::nullptr_t>(this->value))
+            {
+                return "(null)";
+            }
+            else if (std::holds_alternative<std::string>(this->value))
+            {
+                return std::get<std::string>(this->value);
+            }
+            else if (std::holds_alternative<int>(this->value))
+            {
+                return std::to_string(std::get<int>(this->value));
+            }
+            else if (std::holds_alternative<double>(this->value))
+            {
+                return std::to_string(std::get<double>(this->value));
+            }
+
+            return "UNKNOWN";
         }
 
         const char *to_string() const
@@ -59,9 +83,10 @@ class Token
                 case KEYWORD_FROM: return "KEYWORD_FROM";
                 case KEYWORD_SELECT: return "KEYWORD_SELECT";
                 case KEYWORD_TABLE: return "KEYWORD_TABLE";
+                case KEYWORD_VALUES: return "KEYWORD_VALUES";
                 case KEYWORD_WHERE: return "KEYWORD_WHERE";
                 case LITERAL_STRING: return "LITERAL_STRING";
-                case LITERAL_NUMBER: return "LITERAL_NUMBER";
+                case LITERAL_INTEGER: return "LITERAL_INTEGER";
                 case LITERAL_FLOAT: return "LITERAL_FLOAT";
                 case IDENTIFIER: return "IDENTIFIER";
                 case LEFT_PAREN: return "LEFT_PAREN";
@@ -70,6 +95,7 @@ class Token
                 case SEMICOLON: return "SEMICOLON";
                 case EQUAL: return "EQUAL";
                 case NOT_EQUAL: return "NOT_EQUAL";
+                case WILDCARD: return "WILDCARD";
             }
 
             return "UNKNOWN";

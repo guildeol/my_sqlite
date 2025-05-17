@@ -1,11 +1,14 @@
 #pragma once
 
 #include <string>
+#include <map>
+#include <memory>
 #include <vector>
 
 #include "token.h"
 
-using RowEntry_t = std::vector<TokenValue>;
+using ColumnsEntry_t = std::vector<std::string>;
+using RowEntry_t = std::vector<Token>;
 
 class Table
 {
@@ -16,5 +19,16 @@ class Table
 
         Table(std::string p_name, std::vector<std::string> p_columns);
 
-        void insert(RowEntry_t p_row);
+        void insert(const ColumnsEntry_t &p_columns, const RowEntry_t &p_row);
+        void select_all();
+};
+
+class TableManager
+{
+    public:
+        static void add_table(std::string p_name, std::vector<std::string> p_columns);
+        static Table &find(std::string p_name);
+
+    private:
+        inline static std::map<std::string, Table> table_map;
 };
