@@ -17,13 +17,13 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(fmt)
 
 # Add source files
-file(GLOB_RECURSE SOURCES "lib/*.cpp")
+file(GLOB_RECURSE SOURCES "lib/src/*.cpp")
 
 # Add the library
 add_library(sqlite STATIC ${SOURCES})
 
 #Include directories
-target_include_directories(sqlite PUBLIC "lib")
+target_include_directories(sqlite PUBLIC "lib/include")
 target_link_libraries(sqlite PUBLIC fmt::fmt)
 
 add_subdirectory(tests/unit)

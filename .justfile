@@ -2,17 +2,20 @@ build:
     @mkdir -p build
     @cmake -S . -B build
     @cd build && \
-        make my_sqlite
+        make -j my_sqlite
 
 run: build
     @./build/my_sqlite
 
-test:
+unit-test:
     @mkdir -p build
     @cmake -S . -B build
     @cd build &&    \
-        make test_sqlite  &&\
-        ./tests/test_sqlite
+        make -j test_sqlite  && \
+        ./tests/unit/test_sqlite
+
+integration-test: build
+    @python -m pytest
 
 clean:
     @rm -rf build
